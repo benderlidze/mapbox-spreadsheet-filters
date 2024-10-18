@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Style circles with a data-driven property</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.js"></script>
+
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        .mapboxgl-popup.mapboxgl-popup-anchor-top {
+            max-width: 400px !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1Ijoic2VyaHV6IiwiYSI6ImNseXpvc3RlczJpbnIya3FscDU2aHc5d3EifQ.FHtPjde_lqensSHZxqthgw';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
+            style: 'mapbox://styles/mapbox/light-v11',
+            zoom: 0,
+            center: { lng: -0.02665959675479712, lat: 2 },
+            projection: 'mercator'
+        });
+
+        map.on('load', () => {
+
+
+            d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vTaV3eAUk-Nr29tOsjBnMC-DvD2z90LoAU-pvl6A8zHyVLoCe8YuPfoiaYeZH5b32y68DAsTi1qTX8-/pub?gid=0&single=true&output=csv")
+                .then(data => {
+                    console.log(data);
+
+                    const points = data
+                        .filter(row => row["Latitude - Geocode"] && row["Longitude - Geocode"])
+                        .map(row => {
+                            const lat = parseFloat(row["Latitude - Geocode"]);
+                            const lon = parseFloat(row["Longitude - Geocode"]);
+                            const ref = row["Reference"];
+                            const loc = row["Location"];
+                            const study = row["Study"];
+                            const link = row["Link"];
+                            const feedstock = row["Feedstock"];
+                            const topic = row["Research Topic"];
+                            const type = row["Research Type"];
+                            const system = row["Open/Closed system"];
+                            const funds = row["This research was supported by funds from"];
+                            const summary = row["Summary"];
+                            const year = row["Year"];
+
+                            return {
+                                type: 'Feature',
+                                geometry: {
+                                    type: 'Point',
+                                    coordinates: [lon, lat]
+                                },
+                                properties: {
+                                    ref,
+                                    loc,
+                                    link,
+                                    study,
+                                    feedstock,
+                                    topic,
+                                    type,
+                                    system,
+                                    funds,
+                                    summary,
+                                    year
+                                }
+                            }
+                        });
+
+                    console.log(points);
+
+                    map.getSource('points').setData({
+                        type: 'FeatureCollection',
+                        features: points
+                    });
+
+                });
+
+            map.addSource('points', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: []
+                }
+            });
+
+            map.addLayer({
+                id: 'points',
+                source: 'points',
+                type: 'circle',
+                paint: {
+                    'circle-radius': 5,
+                    'circle-color': 'red',
+                    'circle-stroke-width': 1,
+                    'circle-stroke-color': 'white'
+
+                }
+            });
+
+            map.on("mouseenter", "points", (e) => {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+            map.on("mouseleave", "points", (e) => {
+                map.getCanvas().style.cursor = '';
+            });
+
+            map.on("click", "points", (e) => {
+                const { ref, loc, study, link, feedstock, topic, type, system, funds, summary, year } = e.features[0].properties;
+
+                const popup = new mapboxgl.Popup()
+                    .setLngLat(e.lngLat)
+                    .setHTML(`
+                        <h3>${ref}</h3>
+                        <div><strong>Name of study:</strong> 
+                            <a target="_blank" href="${link}">${study}</a>
+                        </div>
+                        <div><strong>Year:</strong> ${year}</div>
+                        <div><strong>Summary:</strong> ${summary}</div>
+                        <div><strong>Feedstock:</strong> ${feedstock}</div>
+                        <div><strong>Research Topic:</strong> ${topic}</div>
+                        <div><strong>Research Type:</strong> ${type}</div>
+                        <div><strong>Open/Closed system:</strong> ${system}</div>
+                        <div><strong>This research was supported by funds from:</strong> ${funds}</div>
+                    `)
+                    .addTo(map);
+            });
+
+
+
+        });
+    </script>
+
+</body>
+
+</html>
