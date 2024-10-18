@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Style circles with a data-driven property</title>
+    <title>OAE Research sites</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.js"></script>
@@ -12,6 +12,7 @@
         body {
             margin: 0;
             padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
         }
 
         #map {
@@ -25,18 +26,28 @@
             max-width: 400px !important;
         }
 
-        #filters {
+        h3 {
+            margin: 0;
+            padding: 0;
+            padding-bottom: 10px;
+        }
+
+        .top {
             position: absolute;
             z-index: 1;
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 5px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            margin: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        #filters {
+            border-radius: 5px;
             flex-direction: row;
-            width: calc(100% - 20px);
+            width: 100%;
             display: flex;
             justify-content: space-between;
-            padding: 10px;
             box-sizing: border-box;
         }
 
@@ -48,7 +59,7 @@
         }
 
         .reset-filter {
-            background: red;
+            background: #f86f31;
             border: none;
             border-radius: 50%;
             width: 16px;
@@ -84,12 +95,27 @@
             flex-direction: row;
             gap: 3px;
         }
+
+        #logo {
+            position: absolute;
+            bottom: 20px;
+            right: 10px;
+            z-index: 10;
+            filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.5));
+        }
     </style>
 </head>
 
 <body>
-    <div id="filters"></div>
+    <div id="logo">
+        <img src="Carbon_to_Sea_Light_S.png">
+    </div>
+    <div class="top">
+        <h3>OAE Research sites</h3>
+        <div id="filters"></div>
+    </div>
     <div id="map"></div>
+
     <script>
         const filtersDiv = document.getElementById("filters");
         const appData = {
@@ -112,7 +138,17 @@
             projection: 'mercator'
         });
 
+
+        map.on('style.load', () => {
+            if (map.getLayer('water')) {
+                map.setPaintProperty('water', 'fill-color', '#7c9298');
+                map.setPaintProperty('land', 'background-color', "#f6f6f5");
+            }
+        });
+
         map.on('load', () => {
+
+
             d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vTaV3eAUk-Nr29tOsjBnMC-DvD2z90LoAU-pvl6A8zHyVLoCe8YuPfoiaYeZH5b32y68DAsTi1qTX8-/pub?gid=0&single=true&output=csv")
                 .then(data => {
                     console.log(data);
@@ -171,7 +207,7 @@
                 type: 'circle',
                 paint: {
                     'circle-radius': 5,
-                    'circle-color': 'red',
+                    'circle-color': '#f86f31',
                     'circle-stroke-width': 1,
                     'circle-stroke-color': 'white'
                 }
@@ -247,12 +283,18 @@
                 option.innerText = "Any";
                 select.appendChild(option);
 
-                filterValues.forEach(value => {
-                    const option = document.createElement("option");
-                    option.value = value;
-                    option.innerText = value;
-                    select.appendChild(option);
-                });
+
+                console.log('', filterName, filterValues);
+
+                filterValues
+                    //if filterName === "Year" then sort by year reverse
+                    .sort((a, b) => filterName === "Year" ? b - a : a.localeCompare(b))
+                    .forEach(value => {
+                        const option = document.createElement("option");
+                        option.value = value;
+                        option.innerText = value;
+                        select.appendChild(option);
+                    });
 
                 select.addEventListener("change", (e) => {
                     onSelect && onSelect(e.target.value);
@@ -291,12 +333,13 @@
                     const uniqueValues = [...new Set(filteredPoints.map(point => point.properties[filterName]))].sort();
 
                     // Add new options
-                    uniqueValues.forEach(value => {
-                        const option = document.createElement("option");
-                        option.value = value;
-                        option.innerText = value;
-                        select.appendChild(option);
-                    });
+                    uniqueValues
+                        .forEach(value => {
+                            const option = document.createElement("option");
+                            option.value = value;
+                            option.innerText = value;
+                            select.appendChild(option);
+                        });
 
                     // Restore selected value if it still exists, otherwise set to "Any"
                     if (uniqueValues.includes(currentValue)) {
