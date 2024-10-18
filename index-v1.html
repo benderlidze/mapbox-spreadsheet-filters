@@ -7,8 +7,6 @@
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.js"></script>
-
-
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         body {
@@ -33,24 +31,58 @@
             background: rgba(255, 255, 255, 0.8);
             border-radius: 5px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-
             margin: 10px;
             flex-direction: row;
             width: calc(100% - 20px);
-            /* Adjust width for margins */
             display: flex;
             justify-content: space-between;
             padding: 10px;
             box-sizing: border-box;
-
         }
 
-
-
         .filter {
-            width: fit-content;
+            width: 15%;
             display: flex;
             flex-direction: column;
+            position: relative;
+        }
+
+        .reset-filter {
+            background: red;
+            border: none;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            font-size: 10px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .reset-filter:hover {
+            background: #999;
+        }
+
+        #resetFilters {
+            width: 15%;
+            padding: 5px 10px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        #resetFilters:hover {
+            background-color: #e0e0e0;
+        }
+
+        .select-container {
+            display: flex;
+            flex-direction: row;
+            gap: 3px;
         }
     </style>
 </head>
@@ -59,7 +91,6 @@
     <div id="filters"></div>
     <div id="map"></div>
     <script>
-
         const filtersDiv = document.getElementById("filters");
         const appData = {
             points: [],
@@ -75,7 +106,6 @@
         mapboxgl.accessToken = 'pk.eyJ1Ijoic2VyaHV6IiwiYSI6ImNseXpvc3RlczJpbnIya3FscDU2aHc5d3EifQ.FHtPjde_lqensSHZxqthgw';
         const map = new mapboxgl.Map({
             container: 'map',
-            // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
             style: 'mapbox://styles/mapbox/light-v11',
             zoom: 0,
             center: { lng: -0.02665959675479712, lat: 2 },
@@ -83,8 +113,6 @@
         });
 
         map.on('load', () => {
-
-
             d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vTaV3eAUk-Nr29tOsjBnMC-DvD2z90LoAU-pvl6A8zHyVLoCe8YuPfoiaYeZH5b32y68DAsTi1qTX8-/pub?gid=0&single=true&output=csv")
                 .then(data => {
                     console.log(data);
@@ -94,23 +122,10 @@
                         .map(row => {
                             const lat = parseFloat(row["Latitude - Geocode"]);
                             const lon = parseFloat(row["Longitude - Geocode"]);
-                            const ref = row["Reference"];
-                            const loc = row["Location"];
-                            const study = row["Study"];
-                            const link = row["Link"];
-                            const feedstock = row["Feedstock"];
-                            const topic = row["Research Topic"];
-                            const type = row["Research Type"];
-                            const system = row["Open/Closed system"];
-                            const funds = row["This research was supported by funds from"];
-                            const summary = row["Summary"];
-                            const year = row["Year"];
 
-                            appData.filters["Year"].values.push(year);
-                            appData.filters["Feedstock"].values.push(feedstock);
-                            appData.filters["Research Topic"].values.push(topic);
-                            appData.filters["Research Type"].values.push(type);
-                            appData.filters["Open/Closed system"].values.push(system);
+                            Object.keys(appData.filters).forEach(filterName => {
+                                appData.filters[filterName].values.push(row[filterName]);
+                            });
 
                             return {
                                 type: 'Feature',
@@ -138,13 +153,8 @@
 
                     appData.points = points;
 
-                    map.getSource('points').setData({
-                        type: 'FeatureCollection',
-                        features: points
-                    });
-
-                    generateFilters()
-
+                    updateMap();
+                    generateFilters();
                 });
 
             map.addSource('points', {
@@ -164,14 +174,13 @@
                     'circle-color': 'red',
                     'circle-stroke-width': 1,
                     'circle-stroke-color': 'white'
-
                 }
             });
 
-            map.on("mouseenter", "points", (e) => {
+            map.on("mouseenter", "points", () => {
                 map.getCanvas().style.cursor = 'pointer';
             });
-            map.on("mouseleave", "points", (e) => {
+            map.on("mouseleave", "points", () => {
                 map.getCanvas().style.cursor = '';
             });
 
@@ -196,32 +205,27 @@
                     .addTo(map);
             });
 
-
             function generateFilters() {
-
                 filtersDiv.style.display = "flex";
                 const filters = appData.filters;
 
                 Object.entries(filters).forEach(([filterName, filterData]) => {
                     const filterValues = [...new Set(filterData.values)].sort();
                     const filter = dropDownFilter(filterData.name, filterValues, (selectedVal) => {
-
-                        console.log('selectedVal', selectedVal);
                         appData.filters[filterName].selected = selectedVal;
-
-                        Object.entries(appData.filters).forEach(([filterName, filterData]) => {
-                            const selectedVal = filterData.selected;
-                            const points = appData.points.filter(point => {
-                                if (selectedVal === "Any") return true;
-                                return point.properties[filterName] === selectedVal;
-                            });
-                            console.log('points', filterName, points);
-                        });
+                        updateFilters();
+                        updateMap();
                     });
 
                     filtersDiv.appendChild(filter.element);
                 });
 
+                // Add reset button
+                const resetButton = document.createElement("button");
+                resetButton.id = "resetFilters";
+                resetButton.innerText = "Reset All Filters";
+                resetButton.addEventListener("click", resetFilters);
+                filtersDiv.appendChild(resetButton);
             }
 
             function dropDownFilter(filterName, filterValues, onSelect) {
@@ -235,9 +239,9 @@
                 const select = document.createElement("select");
                 select.name = filterName;
                 select.id = filterName;
+                select.style.width = "80%";
                 filter.appendChild(select);
 
-                //defaul option is all 
                 const option = document.createElement("option");
                 option.value = "Any";
                 option.innerText = "Any";
@@ -254,13 +258,110 @@
                     onSelect && onSelect(e.target.value);
                 });
 
+                // Add reset button for individual filter
+                const resetButton = document.createElement("button");
+                resetButton.classList.add("reset-filter");
+                resetButton.innerText = "×";
+                resetButton.title = "Reset this filter";
+                resetButton.addEventListener("click", () => resetSingleFilter(filterName));
+
+                const div = document.createElement("div");
+                div.className = "select-container";
+                div.appendChild(select);
+                div.appendChild(resetButton);
+
+                filter.appendChild(div);
+
                 return { element: filter };
             }
+
+            function updateFilters() {
+                const filteredPoints = getFilteredPoints();
+
+                Object.entries(appData.filters).forEach(([filterName, filterData]) => {
+                    const select = document.getElementById(filterName);
+                    const currentValue = select.value;
+
+                    // Clear all options except "Any"
+                    while (select.options.length > 1) {
+                        select.remove(1);
+                    }
+
+                    // Get unique values for this filter from filtered points
+                    const uniqueValues = [...new Set(filteredPoints.map(point => point.properties[filterName]))].sort();
+
+                    // Add new options
+                    uniqueValues.forEach(value => {
+                        const option = document.createElement("option");
+                        option.value = value;
+                        option.innerText = value;
+                        select.appendChild(option);
+                    });
+
+                    // Restore selected value if it still exists, otherwise set to "Any"
+                    if (uniqueValues.includes(currentValue)) {
+                        select.value = currentValue;
+                    } else {
+                        select.value = "Any";
+                        appData.filters[filterName].selected = "Any";
+                    }
+                });
+            }
+
+            function getFilteredPoints() {
+                return appData.points.filter(point => {
+                    return Object.entries(appData.filters).every(([filterName, filterData]) => {
+                        return filterData.selected === "Any" || point.properties[filterName] === filterData.selected;
+                    });
+                });
+            }
+
+            function updateMap() {
+                const filteredPoints = getFilteredPoints();
+                map.getSource('points').setData({
+                    type: 'FeatureCollection',
+                    features: filteredPoints
+                });
+
+                // If there are filtered points, fit the map to their bounds
+                if (filteredPoints.length > 0) {
+                    const bounds = new mapboxgl.LngLatBounds();
+
+                    filteredPoints.forEach(point => {
+                        bounds.extend(point.geometry.coordinates);
+                    });
+
+                    map.fitBounds(bounds, {
+                        padding: 50,
+                        maxZoom: 8
+                    });
+                } else {
+                    map.flyTo({
+                        center: [0, 0],
+                        zoom: 1
+                    });
+                }
+            }
+
+            function resetFilters() {
+                Object.keys(appData.filters).forEach(filterName => {
+                    appData.filters[filterName].selected = "Any";
+                    const select = document.getElementById(filterName);
+                    select.value = "Any";
+                });
+                updateFilters();
+                updateMap();
+            }
+
+            function resetSingleFilter(filterName) {
+                appData.filters[filterName].selected = "Any";
+                const select = document.getElementById(filterName);
+                select.value = "Any";
+                updateFilters();
+                updateMap();
+            }
         });
-
-
     </script>
-
 </body>
 
 </html>
