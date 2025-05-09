@@ -48,6 +48,8 @@
             width: 100%;
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            
             box-sizing: border-box;
         }
 
@@ -158,15 +160,17 @@
     </div>
     <div class="top">
         <h3>OAE Research sites</h3>
-        <div id="filters"></div>
-
-        <!-- Play button -->
-        <div class="history-container">
-            <button class="play-button" id="play-button">
-                <div class="play-icon"></div>
-            </button>
-            <div id="years"></div>
+        <div id="filters">
+            <!-- Play button -->
+            <div class="history-container">
+                <button class="play-button" id="play-button">
+                    <div class="play-icon"></div>
+                </button>
+                <div id="years"></div>
+            </div>
         </div>
+
+
 
     </div>
     <div id="map"></div>
@@ -236,8 +240,8 @@
                                     "Research Topic": row["Research Topic"],
                                     "Research Type": row["Research Type"],
                                     // "Open/Closed system": row["Open/Closed system"],
-                                    "This research was supported by funds from": row["This research was supported by funds from"],
-                                    
+                                    //"This research was supported by funds from": row["This research was supported by funds from"],
+
                                     "Year": +row["Year"],
                                 }
                             }
@@ -344,7 +348,7 @@
                         <div><strong>This research was supported by funds from:</strong> ${row["This research was supported by funds from"]}</div>
                     `)
                     .addTo(map);
-                    // <div><strong>Open/Closed system:</strong> ${row["Open/Closed system"]}</div>
+                // <div><strong>Open/Closed system:</strong> ${row["Open/Closed system"]}</div>
             });
 
             function generateFilters() {
