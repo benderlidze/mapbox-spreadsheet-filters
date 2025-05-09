@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>OAE Research sites</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        .mapboxgl-popup.mapboxgl-popup-anchor-top {
+            max-width: 400px !important;
+        }
+
+        h3 {
+            margin: 0;
+            padding: 0;
+            padding-bottom: 10px;
+        }
+
+        .top {
+            position: absolute;
+            z-index: 1;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        #filters {
+            border-radius: 5px;
+            flex-direction: row;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            box-sizing: border-box;
+        }
+
+        .filter {
+            width: 15%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .reset-filter {
+            background: #f86f31;
+            border: none;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            font-size: 10px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .reset-filter:hover {
+            background: #999;
+        }
+
+        #resetFilters {
+            width: 15%;
+            padding: 5px 10px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        #resetFilters:hover {
+            background-color: #e0e0e0;
+        }
+
+        .select-container {
+            display: flex;
+            flex-direction: row;
+            gap: 3px;
+        }
+
+        #logo {
+            position: absolute;
+            bottom: 20px;
+            right: 10px;
+            z-index: 10;
+            filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.5));
+        }
+
+        #logo img {
+            width: 250px;
+        }
+
+        .play-button {
+            margin: 10px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #ff6f61;
+            /* Button color */
+            border: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s ease;
+        }
+
+        .play-button:hover {
+            background-color: #ff4b47;
+            /* Hover color */
+        }
+
+        .play-button:active {
+            background-color: #e6443f;
+            /* Active color */
+        }
+
+        .play-icon {
+            width: 0;
+            height: 0;
+            border-left: 10px solid white;
+            /* Triangle color */
+            border-top: 7px solid transparent;
+            border-bottom: 7px solid transparent;
+        }
+
+        .history-container {
+            display: flex;
+            flex-direction: row;
+            gap: 10px;
+            align-items: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="logo">
+        <img src="Carbon_to_Sea_Light_S.png">
+    </div>
+    <div class="top">
+        <h3>OAE Research sites</h3>
+        <div id="filters"></div>
+
+        <!-- Play button -->
+        <div class="history-container">
+            <button class="play-button" id="play-button">
+                <div class="play-icon"></div>
+            </button>
+            <div id="years"></div>
+        </div>
+
+    </div>
+    <div id="map"></div>
+
+    <script>
+        const playButtonDiv = document.getElementById("play-button");
+        const yearsDiv = document.getElementById("years");
+        const filtersDiv = document.getElementById("filters");
+        const appData = {
+            points: [],
+            filters: {
+                "Year": { name: "Year", values: [], selected: "Any" },
+                "Feedstock": { name: "Feedstock", values: [], selected: "Any" },
+                "Research Topic": { name: "Research Topic", values: [], selected: "Any" },
+                "Research Type": { name: "Research Type", values: [], selected: "Any" },
+                // "Open/Closed system": { name: "Open/Closed system", values: [], selected: "Any" },
+            }
+        };
+
+        mapboxgl.accessToken = 'pk.eyJ1Ijoic2VyaHV6IiwiYSI6ImNseXpvc3RlczJpbnIya3FscDU2aHc5d3EifQ.FHtPjde_lqensSHZxqthgw';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/light-v11',
+            zoom: 0,
+            center: { lng: -0.02665959675479712, lat: 2 },
+            projection: 'mercator'
+        });
+
+
+        map.on('style.load', () => {
+            if (map.getLayer('water')) {
+                map.setPaintProperty('water', 'fill-color', '#7c9298');
+                map.setPaintProperty('land', 'background-color', "#f6f6f5");
+            }
+        });
+
+        map.on('load', () => {
+
+
+            //d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vTaV3eAUk-Nr29tOsjBnMC-DvD2z90LoAU-pvl6A8zHyVLoCe8YuPfoiaYeZH5b32y68DAsTi1qTX8-/pub?gid=0&single=true&output=csv")
+            d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vQF72n3Yh_x9tTtmN_Q7_swrx6vCu5NbBCQSCGMh_z0NGfMRyi57zl6hSo4eZ8HY3wsT1oSY40asLHZ/pub?gid=0&single=true&output=csv")
+                .then(data => {
+                    console.log(data);
+
+                    const points = data
+                        .filter(row => row["Latitude - Geocode"] && row["Longitude - Geocode"])
+                        .map(row => {
+                            const lat = parseFloat(row["Latitude - Geocode"]);
+                            const lon = parseFloat(row["Longitude - Geocode"]);
+
+                            Object.keys(appData.filters).forEach(filterName => {
+                                appData.filters[filterName].values.push(row[filterName]);
+                            });
+
+                            return {
+                                type: 'Feature',
+                                geometry: {
+                                    type: 'Point',
+                                    coordinates: [lon, lat]
+                                },
+                                properties: {
+                                    "Reference": row["Reference"],
+                                    "Location": row["Location"],
+                                    "Study": row["Study"],
+                                    "Link": row["Link"],
+                                    "Feedstock": row["Feedstock"],
+                                    "Research Topic": row["Research Topic"],
+                                    "Research Type": row["Research Type"],
+                                    // "Open/Closed system": row["Open/Closed system"],
+                                    "This research was supported by funds from": row["This research was supported by funds from"],
+                                    
+                                    "Year": +row["Year"],
+                                }
+                            }
+                        });
+
+                    console.log(points);
+
+                    appData.data = data;
+                    appData.points = points;
+
+                    updateMap();
+                    generateFilters();
+
+
+
+                    playButtonDiv.addEventListener("click", () => {
+                        console.log('!!!');
+                        map.setPaintProperty('points', 'circle-opacity', 0);
+                        map.setPaintProperty('points', 'circle-stroke-opacity', 0);
+
+                        const years = [...new Set(appData.data.map(d => Number(d['Year'])))].sort().filter(d => !isNaN(d));
+                        let curYear = Math.min(...years) || 1991;
+                        let maxYear = Math.max(...years);
+
+                        const animateYear = () => {
+                            if (curYear <= maxYear) {
+                                map.setFilter('points', ['<=', 'Year', curYear]);
+
+                                let opacity = 0;
+                                const animateCircles = () => {
+                                    opacity += 0.05; // Increased from 0.01 to 0.05
+                                    map.setPaintProperty('points', 'circle-opacity', [
+                                        'case',
+                                        ['==', ['get', 'Year'], curYear], opacity >= 1 ? 1 : opacity,
+                                        1
+                                    ]);
+                                    map.setPaintProperty('points', 'circle-stroke-opacity', [
+                                        'case',
+                                        ['==', ['get', 'Year'], curYear], opacity >= 1 ? 1 : opacity,
+                                        1
+                                    ]);
+
+                                    if (opacity < 1) {
+                                        requestAnimationFrame(animateCircles);
+                                    } else {
+                                        curYear++;
+                                        setTimeout(animateYear, 300); // Decreased from 500 to 200
+                                    }
+                                };
+
+                                animateCircles();
+
+                                yearsDiv.innerText = curYear;
+                            }
+                        };
+
+                        animateYear();
+                    });
+                });
+
+            map.addSource('points', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: []
+                }
+            });
+
+            map.addLayer({
+                id: 'points',
+                source: 'points',
+                type: 'circle',
+                paint: {
+                    'circle-radius': 5,
+                    'circle-color': '#f86f31',
+                    'circle-stroke-width': 1,
+                    'circle-stroke-color': 'white'
+                }
+            });
+
+            map.on("mouseenter", "points", () => {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+            map.on("mouseleave", "points", () => {
+                map.getCanvas().style.cursor = '';
+            });
+
+            map.on("click", "points", (e) => {
+                const row = e.features[0].properties;
+
+                const popup = new mapboxgl.Popup()
+                    .setLngLat(e.lngLat)
+                    .setHTML(`
+                        <h3>${row["Reference"]}</h3>
+                        <div><strong>Name of study:</strong> 
+                            <a target="_blank" href="${row["Link"]}">${row["Study"]}</a>
+                        </div>
+                        <div><strong>Year:</strong> ${row["Year"]}</div>
+                        
+                        <div><strong>Feedstock:</strong> ${row["Feedstock"]}</div>
+                        <div><strong>Research Topic:</strong> ${row["Research Topic"]}</div>
+                        <div><strong>Research Type:</strong> ${row["Research Type"]}</div>
+                        
+                        <div><strong>This research was supported by funds from:</strong> ${row["This research was supported by funds from"]}</div>
+                    `)
+                    .addTo(map);
+                    // <div><strong>Open/Closed system:</strong> ${row["Open/Closed system"]}</div>
+            });
+
+            function generateFilters() {
+                filtersDiv.style.display = "flex";
+                const filters = appData.filters;
+
+                Object.entries(filters).forEach(([filterName, filterData]) => {
+                    const filterValues = [...new Set(filterData.values)].sort();
+                    const filter = dropDownFilter(filterData.name, filterValues, (selectedVal) => {
+                        appData.filters[filterName].selected = selectedVal;
+                        updateFilters();
+                        updateMap();
+                    });
+
+                    filtersDiv.appendChild(filter.element);
+                });
+
+                // Add reset button
+                const resetButton = document.createElement("button");
+                resetButton.id = "resetFilters";
+                resetButton.innerText = "Reset All Filters";
+                resetButton.addEventListener("click", resetFilters);
+                filtersDiv.appendChild(resetButton);
+            }
+
+            function dropDownFilter(filterName, filterValues, onSelect) {
+                const filter = document.createElement("div");
+                filter.classList.add("filter");
+
+                const label = document.createElement("label");
+                label.innerText = filterName;
+                filter.appendChild(label);
+
+                const select = document.createElement("select");
+                select.name = filterName;
+                select.id = filterName;
+                select.style.width = "80%";
+                filter.appendChild(select);
+
+                const option = document.createElement("option");
+                option.value = "Any";
+                option.innerText = "Any";
+                select.appendChild(option);
+
+
+                console.log('', filterName, filterValues);
+
+                filterValues
+                    //if filterName === "Year" then sort by year reverse
+                    .sort((a, b) => filterName === "Year" ? b - a : a.localeCompare(b))
+                    .forEach(value => {
+                        const option = document.createElement("option");
+                        option.value = value;
+                        option.innerText = value;
+                        select.appendChild(option);
+                    });
+
+                select.addEventListener("change", (e) => {
+                    onSelect && onSelect(e.target.value);
+                });
+
+                // Add reset button for individual filter
+                const resetButton = document.createElement("button");
+                resetButton.classList.add("reset-filter");
+                resetButton.innerText = "×";
+                resetButton.title = "Reset this filter";
+                resetButton.addEventListener("click", () => resetSingleFilter(filterName));
+
+                const div = document.createElement("div");
+                div.className = "select-container";
+                div.appendChild(select);
+                div.appendChild(resetButton);
+
+                filter.appendChild(div);
+
+                return { element: filter };
+            }
+
+            function updateFilters() {
+                const filteredPoints = getFilteredPoints();
+
+                Object.entries(appData.filters).forEach(([filterName, filterData]) => {
+                    const select = document.getElementById(filterName);
+                    const currentValue = select.value;
+
+                    // Clear all options except "Any"
+                    while (select.options.length > 1) {
+                        select.remove(1);
+                    }
+
+                    // Get unique values for this filter from filtered points
+                    const uniqueValues = [...new Set(filteredPoints.map(point => point.properties[filterName]))].sort();
+
+                    // Add new options
+                    uniqueValues
+                        .forEach(value => {
+                            const option = document.createElement("option");
+                            option.value = value;
+                            option.innerText = value;
+                            select.appendChild(option);
+                        });
+
+                    // Restore selected value if it still exists, otherwise set to "Any"
+                    if (uniqueValues.includes(currentValue)) {
+                        select.value = currentValue;
+                    } else {
+                        select.value = "Any";
+                        appData.filters[filterName].selected = "Any";
+                    }
+                });
+            }
+
+            function getFilteredPoints() {
+                return appData.points.filter(point => {
+                    return Object.entries(appData.filters).every(([filterName, filterData]) => {
+                        return filterData.selected === "Any" || point.properties[filterName] === filterData.selected;
+                    });
+                });
+            }
+
+            function updateMap() {
+                const filteredPoints = getFilteredPoints();
+                map.getSource('points').setData({
+                    type: 'FeatureCollection',
+                    features: filteredPoints
+                });
+
+                // If there are filtered points, fit the map to their bounds
+                if (filteredPoints.length > 0) {
+                    const bounds = new mapboxgl.LngLatBounds();
+
+                    filteredPoints.forEach(point => {
+                        bounds.extend(point.geometry.coordinates);
+                    });
+
+                    map.fitBounds(bounds, {
+                        padding: 50,
+                        maxZoom: 8
+                    });
+                } else {
+                    map.flyTo({
+                        center: [0, 0],
+                        zoom: 1
+                    });
+                }
+            }
+
+            function resetFilters() {
+                Object.keys(appData.filters).forEach(filterName => {
+                    appData.filters[filterName].selected = "Any";
+                    const select = document.getElementById(filterName);
+                    select.value = "Any";
+                });
+                updateFilters();
+                updateMap();
+            }
+
+            function resetSingleFilter(filterName) {
+                appData.filters[filterName].selected = "Any";
+                const select = document.getElementById(filterName);
+                select.value = "Any";
+                updateFilters();
+                updateMap();
+            }
+        });
+    </script>
+</body>
+
+</html>
